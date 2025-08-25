@@ -1,158 +1,405 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="hi">
 <head>
-  <meta charset="UTF-8">
-  <title>Wolf Level</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: black;
-      height: 100vh;
-      flex-direction: column;
-    }
-    canvas {
-      background: #111;
-      display: block;
-    }
-    #controls {
-      display: flex;
-      justify-content: center;
-      margin-top: 10px;
-      gap: 20px;
-    }
-    button {
-      font-size: 20px;
-      padding: 15px 25px;
-      border: none;
-      border-radius: 10px;
-      background: #ff0044;
-      color: white;
-      cursor: pointer;
-    }
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>WOLF LEVEL</title>
+<style>
+  :root{
+    --bg:#0b0f15;--panel:#0f172a;--ink:#e6edf3;--muted:#9fb3c9;
+    --acc:#22d3ee;--acc2:#60a5fa;--danger:#ff5d6c;--ok:#22c55e;
+  }
+  *{box-sizing:border-box} html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto}
+  canvas{display:block;width:100vw;height:100dvh;background:linear-gradient(180deg,#0e1420,#070b12)}
+  /* HUD */
+  #hud{position:fixed;inset:0;pointer-events:none;display:grid;grid-template-rows:auto 1fr auto;padding:10px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid #213047;border-radius:12px;padding:6px 10px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+  .brand{font-weight:900}
+  #progress{height:10px;background:#0e2136;border:1px solid #1b2b44;border-radius:999px;overflow:hidden}
+  #bar{height:100%;width:0%;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+  #msg{min-width:90px}
+  /* Center menu */
+  #center{position:fixed;inset:0;display:grid;place-items:center}
+  .card{pointer-events:auto;max-width:760px;width:min(92vw,760px);background:rgba(255,255,255,.06);border:1px solid #213047;border-radius:18px;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.35);text-align:center}
+  .title{font-size:clamp(22px,4vw,36px);font-weight:900;margin:6px 0}
+  .sub{color:var(--muted);margin:0 0 8px}
+  .btnRow{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:10px}
+  .btn{pointer-events:auto;cursor:pointer;padding:10px 14px;border-radius:12px;border:1px solid #1f3858;background:#0e2236;color:#dce7f3;font-weight:700}
+  .btn.primary{background:linear-gradient(180deg,#1a3f66,#0f2b49)}
+  select{pointer-events:auto;background:#0f1a2a;color:var(--ink);border:1px solid #22314a;padding:6px 10px;border-radius:10px}
+  /* Mobile jump button */
+  #jumpBtn{position:fixed;right:14px;bottom:14px;width:68px;height:68px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid #213047;display:grid;place-items:center;font-size:28px;pointer-events:auto;user-select:none}
+  /* Rotate overlay (portrait) */
+  #rotate{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.75);z-index:30;text-align:center;padding:20px}
+  #rotate .box{background:#0f172a;border:1px solid #213047;border-radius:16px;padding:18px 22px;max-width:420px}
+  @media (orientation:portrait){ #rotate{display:grid} }
+</style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="400"></canvas>
+<canvas id="game" tabindex="0" aria-label="Wolf Level"></canvas>
 
-  <div id="controls">
-    <button id="left">◀️</button>
-    <button id="jump">⬆️</button>
-    <button id="right">▶️</button>
+<!-- HUD -->
+<div id="hud">
+  <div class="row">
+    <div class="chip brand">🐺 WOLF LEVEL</div>
+    <div class="chip" id="crumb">Level 1 / Game 1</div>
+    <div class="chip" id="attempt">Attempt 1</div>
+    <div class="chip" id="pct">0%</div>
+    <div class="chip" id="msg"></div>
   </div>
+  <div></div>
+  <div class="row">
+    <div id="progress" style="flex:1"><div id="bar"></div></div>
+    <div class="row">
+      <select id="picker" title="Level select"></select>
+      <button class="btn" id="reset">Reset</button>
+      <button class="btn" id="pause">Pause</button>
+    </div>
+  </div>
+</div>
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+<!-- Center Menu -->
+<div id="center">
+  <div class="card">
+    <div class="title">Same Devil-Level Feel</div>
+    <p class="sub">Auto-run • सिर्फ Jump • Spikes, Saws, Moving Platforms • Progress Save</p>
+    <div class="btnRow">
+      <button class="btn primary" id="play">Play</button>
+      <button class="btn" id="how">How to Play</button>
+    </div>
+  </div>
+</div>
 
-    let player = { x: 50, y: 300, w: 30, h: 30, dy: 0, grounded: false };
-    let gravity = 0.8, jumpPower = -12;
-    let obstacles = [{x:400,y:340,w:40,h:60},{x:600,y:360,w:40,h:40}];
-    let goal = { x: 750, y: 320, w: 30, h: 30 };
-    let leftPressed=false, rightPressed=false;
+<!-- Mobile jump -->
+<div id="jumpBtn">⤴</div>
 
-    function drawPlayer() {
-      ctx.font = "30px Arial";
-      ctx.fillText("👹", player.x, player.y+20);
+<!-- Rotate prompt -->
+<div id="rotate">
+  <div class="box">
+    <div style="font-size:42px">📲↻</div>
+    <h3 style="margin:.4rem 0 0">Rotate to Landscape</h3>
+    <p style="color:#9fb3c9;margin:.2rem 0 0">फोन को साइड में घुमाओ और फिर Play दबाओ</p>
+  </div>
+</div>
+
+<script>
+(()=>{
+/* ---------- Canvas ---------- */
+const cv=document.getElementById('game'), cx=cv.getContext('2d');
+function fit(){const dpr=Math.max(1,Math.min(2,devicePixelRatio||1));cv.width=Math.floor(innerWidth*dpr);cv.height=Math.floor(innerHeight*dpr);cx.setTransform(dpr,0,0,dpr,0,0);} fit(); addEventListener('resize',fit);
+
+/* ---------- UI refs ---------- */
+const UI={crumb:$('#crumb'),attempt:$('#attempt'),pct:$('#pct'),bar:$('#bar'),msg:$('#msg'),picker:$('#picker'),reset:$('#reset'),pause:$('#pause')};
+const center=$('#center'), playBtn=$('#play'), howBtn=$('#how'), jumpBtn=$('#jumpBtn');
+function $(q){return document.querySelector(q)}
+
+/* ---------- Core rules (Devil-style) ---------- */
+// Auto-run: player.x velocity fixed; control only jump
+const SPEED=320;               // forward speed
+const GRAV=1800;               // gravity
+const JUMP=780;                // jump impulse
+const COYOTE=90;               // ms grace after leaving ground
+const FLOOR_Y = ()=> innerHeight*0.80;
+
+const player={x:120,y:FLOOR_Y()-34,w:28,h:28,vx:SPEED,vy:0,alive:true,onGround:false,lastGroundTime:0};
+let attempt=1, cam=0, running=false, paused=false, t0=performance.now();
+
+/* ---------- Input (Jump only) ---------- */
+let wantJump=false;
+addEventListener('keydown',e=>{ if(e.code==='Space' || e.code==='ArrowUp' || e.code==='KeyW'){wantJump=true; e.preventDefault();}});
+jumpBtn.addEventListener('pointerdown',()=>wantJump=true);
+
+/* ---------- Pieces ---------- */
+function block(x,w,h){return{t:'block',x,w,h}}                   // ground pillar (from floor)
+function gap(x,w){return{t:'gap',x,w}}                           // hole in floor
+function spikes(x,n){return{t:'spikes',x,n,w:28,h:28}}           // spike row
+function moving(x,w,h1,h2,s){return{t:'moving',x,w,h1,h2,s}}     // vertical moving platform
+function saw(x,y,r,dir){return{t:'saw',x,y,r,dir}}               // spinning saw
+function gate(x){return{t:'gate',x}}                             // finish line
+
+function makeLevel(L){ // 3 levels, each has 4 mini-games
+  const games=[];
+  for(let g=1; g<=4; g++){
+    const len = 2600 + (L-1)*400 + g*220;
+    const pieces=[];
+    // start runway
+    pieces.push(block(0,260,60));
+    // patterned section (frustrating but fair 😉)
+    let cxPos=360;
+    for(let i=0;i<8+L;i++){
+      const gapW = 120 - L*6;
+      // alternates: pillar, gap, spikes, moving, saw
+      pieces.push(block(cxPos, 140, 60+L*8));
+      if(i%2===0) pieces.push(spikes(cxPos+60, 2+Math.min(5,i)));
+      if(i%3===1) pieces.push(moving(cxPos+210, 90, 70, 160+L*20, 1.3+0.15*L));
+      if(i%4===2) pieces.push(saw(cxPos+140, FLOOR_Y()-120-L*10, 22+L*3, i%2?1:-1));
+      if(i%3===0) pieces.push(gap(cxPos+180, gapW));
+      cxPos += 260 + gapW;
     }
+    // end run
+    pieces.push(spikes(len-420, 4+L));
+    pieces.push(block(len-260, 220, 60+L*8));
+    pieces.push(gate(len));
+    games.push({name:`Game ${g}`,len,pieces});
+  }
+  return {name:`Level ${L}`,games};
+}
+const WORLD={levels:[makeLevel(1),makeLevel(2),makeLevel(3)]};
+let levelI = load().lvl ?? 0; // unlocked highest level index
+let gameI = 0;
 
-    function drawObstacles() {
-      ctx.fillStyle = "red";
-      obstacles.forEach(ob => ctx.fillRect(ob.x, ob.y, ob.w, ob.h));
+/* ---------- Save/Load ---------- */
+const KEY='wolf_level_progress';
+function save(s){ localStorage.setItem(KEY, JSON.stringify({...load(),...s})); }
+function load(){ try{return JSON.parse(localStorage.getItem(KEY))||{}}catch{return{}} }
+
+/* ---------- Helpers ---------- */
+function curLevel(){return WORLD.levels[levelI]}
+function curGame(){return curLevel().games[gameI]}
+function pct(){return Math.floor(100*Math.max(0,Math.min(1,(cam+player.x)/curGame().len)))}
+function aabb(ax,ay,aw,ah,bx,by,bw,bh){return ax<bx+bw && ax+aw>bx && ay<by+bh && ay+ah>by}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function resetPlayer(first=false){
+  player.x=120; player.y=FLOOR_Y()-player.h-2; player.vx=SPEED; player.vy=0; player.alive=true; player.onGround=true; player.lastGroundTime=performance.now();
+  if(!first){attempt++; UI.attempt.textContent=`Attempt ${attempt}`;}
+}
+function hit(){
+  if(!player.alive) return;
+  player.alive=false; UI.msg.textContent='💀';
+  setTimeout(()=>{ cam=0; resetPlayer(); },160);
+}
+function win(){
+  running=false; UI.msg.textContent='✅';
+  setTimeout(()=>{
+    gameI++;
+    if(gameI>=4){
+      levelI++;
+      if(levelI>=WORLD.levels.length){ levelI=WORLD.levels.length-1; gameI=3; center.style.display='grid'; UI.msg.textContent='🎉 All Clear'; return; }
+      save({lvl:Math.max(load().lvl??0, levelI)});
+      alert(`Level ${levelI+1} unlocked!`);
+      gameI=0;
     }
+    attempt=1; showMenu();
+  },220);
+}
 
-    function drawGoal() {
-      ctx.fillStyle = "yellow";
-      ctx.beginPath();
-      ctx.arc(goal.x, goal.y, goal.w/2, 0, Math.PI*2);
-      ctx.fill();
-    }
+/* ---------- UI ---------- */
+function updateHUD(){
+  UI.crumb.textContent=`${curLevel().name} / ${curGame().name}`;
+  UI.attempt.textContent=`Attempt ${attempt}`;
+  UI.pct.textContent=`${pct()}%`;
+  UI.bar.style.width=`${pct()}%`;
+}
+function refreshPicker(){
+  UI.picker.innerHTML='';
+  WORLD.levels.forEach((lv,i)=>{
+    const o=document.createElement('option');
+    o.value=i; o.textContent=`${i+1}. ${lv.name}`;
+    UI.picker.appendChild(o);
+  });
+  UI.picker.value=levelI;
+}
+UI.picker.addEventListener('change',e=>{
+  const i=+e.target.value;
+  if(i <= (load().lvl ?? 0)){ levelI=i; gameI=0; attempt=1; showMenu(); }
+  else e.target.value=levelI;
+});
+UI.reset.addEventListener('click',()=>{
+  if(confirm('Reset all progress?')){ save({lvl:0}); levelI=0; gameI=0; attempt=1; showMenu(); }
+});
+UI.pause.addEventListener('click',()=>{
+  paused=!paused; UI.pause.textContent=paused?'Resume':'Pause';
+});
 
-    function update() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
+/* ---------- Menu ---------- */
+const playBtn=$('#play'), howBtn=$('#how');
+playBtn.addEventListener('click', ()=>{ center.style.display='none'; running=true; cv.focus(); });
+howBtn.addEventListener('click', ()=>alert('Auto-run: character खुद आगे बढ़ता है. सिर्फ JUMP control (Space / Tap). Spikes, saws, gaps छूओगे तो मरोगे. Gate छूते ही अगला mini-game. हर Level में 4 games. Progress save होती है.'));
+function showMenu(){ center.style.display='grid'; running=false; paused=false; UI.pause.textContent='Pause'; cam=0; resetPlayer(true); updateHUD(); refreshPicker(); UI.msg.textContent=''; }
 
-      // Move player
-      if (leftPressed) player.x -= 5;
-      if (rightPressed) player.x += 5;
+/* ---------- Collisions ---------- */
+function groundY(){ return FLOOR_Y(); }
+function collidePiece(p){
+  const base=groundY();
 
-      // Gravity
-      player.y += player.dy;
-      player.dy += gravity;
-
-      if (player.y+player.h >= 370) {
-        player.y = 370-player.h;
-        player.dy = 0;
-        player.grounded = true;
-      } else {
-        player.grounded = false;
+  if(p.t==='block'){
+    const y=base-p.h;
+    if(aabb(player.x,player.y,player.w,player.h, p.x-cam,y,p.w,p.h)){
+      // top land
+      if(player.y+player.h <= y+12 && player.vy>=0){
+        player.y = y - player.h; player.vy=0; player.onGround=true; player.lastGroundTime=performance.now(); return;
+      }else{
+        // side bump -> die (devil-level tough)
+        hit();
       }
-
-      // Collisions
-      obstacles.forEach(ob=>{
-        if (player.x < ob.x+ob.w &&
-            player.x+player.w > ob.x &&
-            player.y < ob.y+ob.h &&
-            player.y+player.h > ob.y) {
-          resetGame();
-        }
-      });
-
-      // Goal
-      if (player.x < goal.x+goal.w &&
-          player.x+player.w > goal.x &&
-          player.y < goal.y+goal.h &&
-          player.y+player.h > goal.y) {
-        alert("🎉 Level Complete!");
-        resetGame();
-      }
-
-      drawPlayer();
-      drawObstacles();
-      drawGoal();
-
-      requestAnimationFrame(update);
     }
+  }
 
-    function resetGame() {
-      player.x = 50;
-      player.y = 300;
-      player.dy = 0;
+  if(p.t==='gap'){
+    const y=base, bw=p.w;
+    // if player above gap region and below floor -> fall
+    if(player.x+player.w>p.x-cam && player.x<p.x-cam+bw){
+      if(player.y+player.h>=y) hit();
     }
+  }
 
-    // Controls
-    document.getElementById("left").addEventListener("touchstart", ()=>leftPressed=true);
-    document.getElementById("left").addEventListener("touchend", ()=>leftPressed=false);
+  if(p.t==='moving'){
+    const t=performance.now()/1000; const amp=(p.h2-p.h1)/2; const mid=p.h1+amp;
+    const h = mid + Math.sin(t*p.s*2*Math.PI)*amp;
+    const y = base - h;
+    if(aabb(player.x,player.y,player.w,player.h, p.x-cam,y,p.w,h)){
+      if(player.y+player.h <= y+12 && player.vy>=0){
+        player.y=y-player.h; player.vy=0; player.onGround=true; player.lastGroundTime=performance.now();
+      }else hit();
+    }
+  }
 
-    document.getElementById("right").addEventListener("touchstart", ()=>rightPressed=true);
-    document.getElementById("right").addEventListener("touchend", ()=>rightPressed=false);
+  if(p.t==='spikes'){
+    const y=base-p.h; const W=p.n*p.w;
+    if(aabb(player.x,player.y,player.w,player.h, p.x-cam,y,W,p.h)){
+      // triangle tip approx
+      const rel = (player.x+player.w/2) - (p.x-cam);
+      const tipY = y + p.h*(1 - Math.abs((rel%p.w) - p.w/2)/(p.w/2));
+      if(player.y+player.h > tipY-3) hit();
+    }
+  }
 
-    document.getElementById("jump").addEventListener("touchstart", ()=>{
-      if(player.grounded){
-        player.dy = jumpPower;
-        player.grounded = false;
-      }
-    });
+  if(p.t==='saw'){
+    const x=p.x-cam, y=p.y; const r=p.r;
+    const nx=clamp(player.x+player.w/2, x-r, x+r);
+    const ny=clamp(player.y+player.h/2, y-r, y+r);
+    const dx=nx-x, dy=ny-y;
+    if(dx*dx+dy*dy < r*r) hit();
+  }
 
-    // Keyboard also works
-    document.addEventListener("keydown", e=>{
-      if(e.code==="ArrowLeft") leftPressed=true;
-      if(e.code==="ArrowRight") rightPressed=true;
-      if(e.code==="Space") {
-        if(player.grounded){
-          player.dy = jumpPower;
-          player.grounded = false;
-        }
-      }
-    });
-    document.addEventListener("keyup", e=>{
-      if(e.code==="ArrowLeft") leftPressed=false;
-      if(e.code==="ArrowRight") rightPressed=false;
-    });
+  if(p.t==='gate'){
+    if(player.x+player.w > p.x-cam){ win(); }
+  }
+}
 
-    update();
-  </script>
+/* ---------- Draw ---------- */
+function drawPiece(p){
+  const base=groundY();
+  if(p.t==='block'){
+    const y=base-p.h; cx.fillStyle='#183150'; cx.fillRect(p.x-cam,y,p.w,p.h); cx.fillStyle='#29507e'; cx.fillRect(p.x-cam,y,p.w,6);
+  }
+  if(p.t==='gap'){
+    // draw floor shade edges
+    cx.fillStyle='#0c1728'; cx.fillRect(p.x-cam, base, p.w, innerHeight-base);
+  }
+  if(p.t==='moving'){
+    const t=performance.now()/1000; const amp=(p.h2-p.h1)/2; const mid=p.h1+amp; const h=mid+Math.sin(t*p.s*2*Math.PI)*amp;
+    const y=base-h; cx.fillStyle='#7c3aed'; cx.fillRect(p.x-cam,y,p.w,h);
+  }
+  if(p.t==='spikes'){
+    const y=base-p.h; cx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--danger')||'#ff5d6c';
+    for(let i=0;i<p.n;i++){const x=p.x-cam+i*p.w; cx.beginPath(); cx.moveTo(x,y+p.w); cx.lineTo(x+p.w/2,y); cx.lineTo(x+p.w,y+p.w); cx.closePath(); cx.fill();}
+  }
+  if(p.t==='saw'){
+    const x=p.x-cam, y=p.y; const r=p.r; const t=performance.now()/150*(p.dir||1);
+    cx.save(); cx.translate(x,y); cx.rotate(t*0.02); cx.fillStyle='#ffd166';
+    for(let i=0;i<12;i++){cx.rotate(Math.PI/6); cx.beginPath(); cx.moveTo(r*0.6,0); cx.lineTo(r,0); cx.lineTo(r*0.6,4); cx.closePath(); cx.fill();}
+    cx.beginPath(); cx.arc(0,0,r*0.55,0,Math.PI*2); cx.fillStyle='#333'; cx.fill(); cx.restore();
+  }
+  if(p.t==='gate'){
+    cx.fillStyle='#22c55e'; cx.fillRect(p.x-cam, base-120, 10, 120);
+    cx.fillStyle='rgba(34,197,94,.25)'; cx.fillRect(p.x-cam-12, base-120, 12, 120);
+  }
+}
+
+function draw(){
+  const w=innerWidth, h=innerHeight;
+  // background layers
+  cx.fillStyle='#0a1220'; cx.fillRect(0,0,w,h);
+  cx.fillStyle='#0c1728'; cx.fillRect(0,h*0.8,w,h*0.2);
+  // floor line
+  cx.fillStyle='#1d395e'; cx.fillRect(0, FLOOR_Y()-2, w, 2);
+
+  // world
+  curGame().pieces.forEach(drawPiece);
+
+  // PLAYER (devil/wolf emoji – small, not a ball sprite)
+  const px=player.x, py=player.y, r=18;
+  cx.save();
+  // glow
+  cx.shadowBlur=10; cx.shadowColor='rgba(0,0,0,.35)';
+  // body circle
+  const grd=cx.createLinearGradient(px,py,px,py+player.h);
+  grd.addColorStop(0,'#22d3ee'); grd.addColorStop(1,'#3b82f6');
+  cx.fillStyle=grd;
+  cx.beginPath(); cx.arc(px+player.w/2, py+player.h/2, r, 0, Math.PI*2); cx.fill();
+  cx.shadowBlur=0;
+  // face emoji
+  cx.font='20px Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol';
+  cx.textAlign='center'; cx.textBaseline='middle';
+  cx.fillText('👹', px+player.w/2, py+player.h/2+1);
+  cx.restore();
+}
+
+/* ---------- Step ---------- */
+function step(dt){
+  // only jump control; forward vx fixed
+  player.vx = SPEED;
+
+  // coyote-time jump
+  const now=performance.now();
+  if(wantJump){
+    if(player.onGround || (now - player.lastGroundTime) < COYOTE){
+      player.vy = -JUMP;
+      player.onGround=false;
+    }
+    wantJump=false;
+  }
+
+  // gravity
+  player.vy += GRAV*dt;
+
+  // integrate
+  player.x += player.vx*dt;
+  player.y += player.vy*dt;
+
+  // floor clamp
+  if(player.y > FLOOR_Y()-player.h){ player.y=FLOOR_Y()-player.h; player.vy=0; player.onGround=true; player.lastGroundTime=now; }
+
+  // camera follow (lead a bit)
+  const target = clamp(player.x - innerWidth*0.35, 0, curGame().len - innerWidth*0.55);
+  cam += (target-cam)*Math.min(1, dt*6);
+
+  // bounds
+  if(player.y > innerHeight+200) hit();
+
+  // collisions
+  for(const p of curGame().pieces){ collidePiece(p); }
+
+  // hud
+  UI.pct.textContent = `${pct()}%`;
+  UI.bar.style.width = `${pct()}%`;
+}
+
+/* ---------- Main loop ---------- */
+function loop(t){
+  const dt=Math.min(0.033,(t-t0)/1000); t0=t;
+  if(running && !paused && player.alive){ step(dt); }
+  cx.clearRect(0,0,innerWidth,innerHeight);
+  // camera transform
+  cx.save(); cx.translate(-cam,0);
+  draw();
+  cx.restore();
+  updateHUD();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- Init minor extras ---------- */
+WORLD.levels.forEach((lv,idx)=>{ lv.games.forEach((g,gi)=>{ g.pieces.push(saw(600+idx*40, FLOOR_Y()-120-idx*10, 22+idx*2, gi%2?1:-1)); }); });
+
+/* ---------- Menu start ---------- */
+showMenu();
+
+/* ---------- Utils ---------- */
+function $(q){return document.querySelector(q)}
+})();
+</script>
 </body>
-</html>
+  </html>
