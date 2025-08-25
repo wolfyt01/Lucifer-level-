@@ -1,138 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Wolf Level</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lucifer Level Game</title>
   <style>
     body {
       margin: 0;
-      padding: 0;
       background: black;
-      overflow: hidden;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
     }
-    #game-container {
-      width: 100vw;
-      height: 100vh;
+    #menu {
+      margin-top: 50px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 18px;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+    canvas {
+      display: none;
+      background: #000;
     }
   </style>
 </head>
 <body>
-  <div id="game-container"></div>
+  <div id="menu">
+    <h1>👹 Lucifer Level</h1>
+    <button onclick="startGame()">Play</button>
+    <button onclick="howToPlay()">How to Play</button>
+    <p id="instructions" style="display:none;">Use ⬅️ ➡️ keys to move 👹 and avoid obstacles!</p>
+  </div>
 
-  <!-- Phaser.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
-  <script>
-    class MyGame extends Phaser.Scene {
-      constructor() {
-        super();
-      }
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
 
-      preload() {
-        // Load simple assets (emoji character, spike)
-        this.load.image("ground", "https://i.ibb.co/r6fpprx/ground.png");
-        this.load.image("spike", "https://i.ibb.co/VCs9Lry/spike.png");
-        this.load.image("player", "https://i.ibb.co/3znkPW7/devil.png"); // devil style character
-      }
-
-      create() {
-        // Add ground
-        this.ground = this.physics.add.staticGroup();
-        this.ground.create(400, 580, "ground").setScale(2).refreshBody();
-
-        // Add player
-        this.player = this.physics.add.sprite(100, 450, "player").setScale(0.2);
-        this.player.setBounce(0.1);
-        this.player.setCollideWorldBounds(true);
-
-        // Add spikes
-        this.spikes = this.physics.add.group();
-        this.spikes.create(400, 545, "spike").setScale(0.1).refreshBody();
-        this.spikes.create(600, 545, "spike").setScale(0.1).refreshBody();
-
-        // Collisions
-        this.physics.add.collider(this.player, this.ground);
-        this.physics.add.collider(this.spikes, this.ground);
-        this.physics.add.overlap(this.player, this.spikes, this.hitSpike, null, this);
-
-        // Controls
-        this.cursors = this.input.keyboard.createCursorKeys();
-
-        // Progress text
-        this.progressText = this.add.text(16, 16, "Progress: 0%", {
-          fontSize: "24px",
-          fill: "#fff"
-        });
-      }
-
-      update() {
-        if (this.cursors.left.isDown) {
-          this.player.setVelocityX(-200);
-        } else if (this.cursors.right.isDown) {
-          this.player.setVelocityX(200);
-        } else {
-          this.player.setVelocityX(0);
-        }
-
-        if (this.cursors.up.isDown && this.player.body.touching.down) {
-          this.player.setVelocityY(-400);
-        }
-
-        // Progress % (based on x position)
-        let progress = Math.floor((this.player.x / 800) * 100);
-        if (progress > 100) progress = 100;
-        this.progressText.setText("Progress: " + progress + "%");
-
-        // Win condition
-        if (progress >= 100) {
-          this.scene.start("WinScene");
-        }
-      }
-
-      hitSpike(player, spike) {
-        this.scene.start("GameOverScene");
-      }
-    }
-
-    class GameOverScene extends Phaser.Scene {
-      constructor() {
-        super("GameOverScene");
-      }
-      create() {
-        this.add.text(300, 250, "Game Over", { fontSize: "48px", fill: "#f00" });
-        this.add.text(280, 320, "Press SPACE to Restart", { fontSize: "24px", fill: "#fff" });
-        this.input.keyboard.once("keydown-SPACE", () => {
-          this.scene.start("default");
-        });
-      }
-    }
-
-    class WinScene extends Phaser.Scene {
-      constructor() {
-        super("WinScene");
-      }
-      create() {
-        this.add.text(300, 250, "You Win 🎉", { fontSize: "48px", fill: "#0f0" });
-        this.add.text(250, 320, "Press SPACE for Next Level", { fontSize: "24px", fill: "#fff" });
-        this.input.keyboard.once("keydown-SPACE", () => {
-          this.scene.start("default");
-        });
-      }
-    }
-
-    const config = {
-      type: Phaser.AUTO,
-      width: 800,
-      height: 600,
-      backgroundColor: "#000000",
-      physics: {
-        default: "arcade",
-        arcade: { gravity: { y: 600 }, debug: false }
-      },
-      scene: [MyGame, GameOverScene, WinScene],
-      parent: "game-container"
-    };
-
-    new Phaser.Game(config);
-  </script>
+  <script src="game.js"></script>
 </body>
 </html>
