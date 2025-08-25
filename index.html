@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Devil Level Game</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: linear-gradient(to bottom, #222, #000);
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    button {
+      padding: 8px 15px;
+      margin: 5px;
+      background: red;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <h2>🔥 Devil Level 🔥</h2>
+    <button onclick="resetGame()">Restart</button>
+    <p id="level">Level: 1</p>
+    <p id="status"></p>
+  </div>
+  <canvas id="game" width="400" height="600"></canvas>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    let player = { x: 180, y: 550, size: 20, dy: 0 };
+    let gravity = 0.4;
+    let jump = -8;
+    let obstacles = [];
+    let gameOver = false;
+    let level = 1;
+
+    function resetGame() {
+      player = { x: 180, y: 550, size: 20, dy: 0 };
+      obstacles = [];
+      gameOver = false;
+      document.getElementById("status").innerText = "";
+    }
+
+    function makeObstacles() {
+      obstacles = [];
+      for (let i = 0; i < 6; i++) {
+        let gap = Math.random() * 200 + 50;
+        obstacles.push({
+          x: 0,
+          y: i * -150,
+          width: Math.random() * 200 + 50,
+          height: 20,
+          gap: gap,
+        });
+      }
+    }
+
+    function drawPlayer() {
+      ctx.fillStyle = "cyan";
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+    }
+
+    function drawObstacles() {
+      ctx.fillStyle = "red";
+      obstacles.forEach((obs) => {
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+        ctx.fillRect(obs.width + obs.gap, obs.y, canvas.width, obs.height);
+      });
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Player physics
+      player.dy += gravity;
+      player.y += player.dy;
+      if (player.y + player.size > canvas.height) {
+        player.y = canvas.height - player.size;
+        player.dy = 0;
+      }
+
+      drawPlayer();
+
+      // Obstacles move
+      obstacles.forEach((obs) => {
+        obs.y += 2 + level * 0.5;
+        if (
+          player.x < obs.width &&
+          player.y < obs.y + obs.height &&
+          player.y + player.size > obs.y
+        ) {
+          gameOver = true;
+          document.getElementById("status").innerText = "💀 Game Over!";
+        }
+        if (
+          player.x + player.size > obs.width + obs.gap &&
+          player.y < obs.y + obs.height &&
+          player.y + player.size > obs.y
+        ) {
+          gameOver = true;
+          document.getElementById("status").innerText = "💀 Game Over!";
+        }
+      });
+
+      // Remove passed obstacles
+      if (obstacles[0].y > canvas.height) {
+        obstacles.shift();
+        let gap = Math.random() * 200 + 50;
+        obstacles.push({
+          x: 0,
+          y: -150,
+          width: Math.random() * 200 + 50,
+          height: 20,
+          gap: gap,
+        });
+        level++;
+        document.getElementById("level").innerText = "Level: " + level;
+      }
+
+      drawObstacles();
+      requestAnimationFrame(update);
+    }
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        player.dy = jump;
+      }
+    });
+
+    makeObstacles();
+    update();
+  </script>
+</body>
+</html>
