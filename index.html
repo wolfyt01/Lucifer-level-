@@ -1,386 +1,176 @@
-<!doctype html>
-<html lang="hi">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
-<title>Devil Level – 3 Levels × 4 Mini-Games</title>
-<style>
-  :root{--bg:#0b0f15;--panel:#0f172a;--ink:#e6edf3;--muted:#8aa0b8;--acc:#22d3ee;--acc2:#60a5fa;--danger:#ff5d6c;--ok:#22c55e}
-  *{box-sizing:border-box}html,body{height:100%;margin:0;background:#0b0f15;color:var(--ink);font-family:system-ui,Segoe UI,Roboto}
-  canvas{display:block;width:100vw;height:100dvh;background:linear-gradient(180deg,#0e1420,#070b12)}
-  #hud{position:fixed;inset:0;pointer-events:none;display:grid;grid-template-rows:auto 1fr auto;padding:10px}
-  .row{display:flex;gap:8px;align-items:center}
-  .chip{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid #213047;border-radius:12px;padding:6px 10px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
-  .brand{font-weight:800}
-  #progress{height:10px;background:#0e2136;border:1px solid #1b2b44;border-radius:999px;overflow:hidden}
-  #bar{height:100%;width:0%;background:linear-gradient(90deg,var(--acc),var(--acc2))}
-  #center{position:fixed;inset:0;display:grid;place-items:center;text-align:center}
-  .card{pointer-events:auto;max-width:760px;width:min(92vw,760px);background:rgba(255,255,255,.06);border:1px solid #213047;border-radius:18px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-  .title{font-size:clamp(22px,4vw,36px);font-weight:900;margin:6px 0}
-  .sub{color:var(--muted);margin:0 0 8px}
-  .btnRow{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:10px}
-  .btn{pointer-events:auto;cursor:pointer;padding:10px 14px;border-radius:12px;border:1px solid #1f3858;background:#0e2236;color:#dce7f3;font-weight:700}
-  .btn.primary{background:linear-gradient(180deg,#1a3f66,#0f2b49)}
-  select{pointer-events:auto;background:#0f1a2a;color:var(--ink);border:1px solid #22314a;padding:6px 10px;border-radius:10px}
-  /* Mobile controls */
-  #controls{position:fixed;left:10px;right:10px;bottom:12px;display:flex;gap:10px;justify-content:space-between;pointer-events:none}
-  .pad{pointer-events:auto;display:flex;gap:10px}
-  .key{width:60px;height:60px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid #213047;display:grid;place-items:center;font-weight:800}
-  @media (min-width:900px){ #controls{display:none} }
-</style>
+  <meta charset="UTF-8">
+  <title>Wolf Level</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0d1117;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: #111827;
+    }
+    #hud {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+      background: rgba(0,0,0,0.6);
+      padding: 8px 16px;
+      border-radius: 10px;
+    }
+    #hud div {
+      font-size: 14px;
+      font-weight: bold;
+    }
+    button {
+      margin: 5px;
+      padding: 10px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+  </style>
 </head>
 <body>
-<canvas id="game" tabindex="0" aria-label="Devil Level"></canvas>
-
-<div id="hud">
-  <div class="row">
-    <div class="chip brand">😈 Devil Level</div>
-    <div class="chip" id="crumb">Level 1 / Game 1</div>
-    <div class="chip" id="attempt">Attempt 1</div>
-    <div class="chip" id="pct">0%</div>
-    <div class="chip" id="msg"></div>
+  <div id="hud">
+    <div id="title">🐺 Wolf Level</div>
+    <div id="level">Level 1 / Game 1</div>
+    <div id="attempts">Attempt 1</div>
+    <div id="progress">0%</div>
   </div>
-  <div></div>
-  <div class="row">
-    <div id="progress" style="flex:1"><div id="bar"></div></div>
-    <div class="row">
-      <select id="picker" title="Jump to Level"></select>
-      <button class="btn" id="reset">Reset</button>
-    </div>
-  </div>
-</div>
-
-<div id="center">
-  <div class="card">
-    <div class="title">3 Levels × 4 Mini-Games</div>
-    <p class="sub">PC: ← → move, SPACE jump • Mobile: on-screen buttons</p>
-    <div class="btnRow">
-      <button class="btn primary" id="play">Play</button>
-      <button class="btn" id="how">How to Play</button>
-    </div>
-  </div>
-</div>
-
-<!-- Mobile on-screen controls -->
-<div id="controls">
-  <div class="pad">
-    <div class="key" id="left">◀</div>
-    <div class="key" id="right">▶</div>
-  </div>
-  <div class="pad">
-    <div class="key" id="jump">⤴</div>
-  </div>
-</div>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+  <br>
+  <button onclick="resetLevel()">🔄 Reset</button>
 
 <script>
-(()=>{
-// ========= Canvas =========
-const cv=document.getElementById('game'), cx=cv.getContext('2d');
-function fit(){const dpr=Math.max(1,Math.min(2,devicePixelRatio||1));cv.width=Math.floor(innerWidth*dpr);cv.height=Math.floor(innerHeight*dpr);cx.setTransform(dpr,0,0,dpr,0,0);} fit(); addEventListener('resize',fit);
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-// ========= HUD =========
-const UI={crumb:$('#crumb'),attempt:$('#attempt'),pct:$('#pct'),msg:$('#msg'),bar:$('#bar'),picker:$('#picker'),reset:$('#reset')};
-const center=$('#center'), playBtn=$('#play'), howBtn=$('#how');
-function $(q){return document.querySelector(q)}
+let level = 1;
+let attempt = 1;
+let player = { x: 50, y: 300, size: 20, dy: 0, onGround: true };
+let gravity = 0.8;
+let jumpPower = -12;
+let obstacles = [];
+let goal = { x: 2000, y: 300, size: 30 };
+let cameraX = 0;
 
-// ========= Player & physics =========
-const GRAV=1800, JUMP=820, MOVE=420, FRICTION=0.86;
-const FLOOR=()=>innerHeight*0.80;
-const player={x:80,y:FLOOR()-40,w:34,h:34,vx:0,vy:0,alive:true,onGround:false};
-let attempt=1, cam=0, running=false, t0=performance.now();
-
-// ========= Input =========
-const keys={left:false,right:false,jump:false,justJump:false};
-addEventListener('keydown',e=>{
-  if(e.code==='ArrowLeft' || e.code==='KeyA') keys.left=true;
-  if(e.code==='ArrowRight'|| e.code==='KeyD') keys.right=true;
-  if(e.code==='Space' || e.code==='ArrowUp' || e.code==='KeyW'){ if(!keys.jump) keys.justJump=true; keys.jump=true; }
-});
-addEventListener('keyup',e=>{
-  if(e.code==='ArrowLeft' || e.code==='KeyA') keys.left=false;
-  if(e.code==='ArrowRight'|| e.code==='KeyD') keys.right=false;
-  if(e.code==='Space' || e.code==='ArrowUp' || e.code==='KeyW') keys.jump=false;
-});
-
-// Mobile buttons
-bindHold('#left', v=>keys.left=v);
-bindHold('#right',v=>keys.right=v);
-bindHold('#jump', v=>{ if(v&&!keys.jump) keys.justJump=true; keys.jump=v; });
-function bindHold(sel,fn){const el=$(sel); let hold=false; el.addEventListener('pointerdown',e=>{e.preventDefault();hold=true;fn(true)}); addEventListener('pointerup',()=>{if(hold){hold=false;fn(false)}}); el.addEventListener('pointerleave',()=>{if(hold){hold=false;fn(false)}})}
-
-// ========= Level data (3 levels × 4 games) =========
-// Primitive pieces: block(x,w,h), spikeRow(x,n), saw(x,y,r,dir), moving(x,w,hMin,hMax,speed), gate(x)
-function block(x,w,h){return{t:'block',x,w,h}}
-function spikes(x,n){return{t:'spikes',x,n,w:28,h:28}}
-function moving(x,w,h1,h2,s){return{t:'moving',x,w,h1,h2,s}}
-function saw(x,y,r,dir){return{t:'saw',x,y,r,dir}}
-function gate(x){return{t:'gate',x}}
-
-function makeLevel(L){
-  // 4 mini-games, each with different patterns; difficulty grows with L (1..3)
-  const games=[];
-  for(let g=1; g<=4; g++){
-    const len = 2200 + L*300 + g*120;
-    const pieces=[];
-    // Start platform
-    pieces.push(block(0,260,60));
-    // Core sequence
-    let cx=340;
-    // alternating hazards
-    for(let i=0;i<6+L;i++){
-      const gap = 140 - L*10;
-      pieces.push(block(cx, 160, 60+L*6));
-      if(i%2===0) pieces.push(spikes(cx+80, 2+Math.min(5,Math.floor(i/2)+L)));
-      if(i%3===1) pieces.push(moving(cx+220, 80, 60, 120+L*20, 1.2+L*0.2));
-      if(i%4===2) pieces.push(saw(cx+120, FLOOR()-120-L*10, 22+L*2, i%2?1:-1));
-      cx += 260 + gap;
-    }
-    // Final run
-    pieces.push(spikes(len-420, 4+L));
-    pieces.push(block(len-260, 200, 60+L*6));
-    pieces.push(gate(len)); // finish
-    games.push({name:`Game ${g}`,len,pieces});
+function generateLevel() {
+  obstacles = [];
+  for (let i = 200; i < 2000; i += 300) {
+    let height = Math.random() * 50 + 20;
+    obstacles.push({ x: i, y: 320 - height, w: 30, h: height });
   }
-  return {name:`Level ${L}`,games};
 }
-const PART={levels:[makeLevel(1),makeLevel(2),makeLevel(3)]};
-let levelI = load().lvl ?? 0;
-let gameI = 0;
+generateLevel();
 
-// ========= Helpers =========
-function groundY(){return FLOOR()}
-function aabb(ax,ay,aw,ah,bx,by,bw,bh){return ax<bx+bw && ax+aw>bx && ay<by+bh && ay+ah>by}
-function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
-function pct(){const L=curGame().len; return Math.floor(100*clamp((cam+player.x)/L,0,1))}
-function curLevel(){return PART.levels[levelI]}
-function curGame(){return curLevel().games[gameI]}
-
-// ========= HUD / state =========
-function updateCrumbs(){
-  UI.crumb.textContent=`${curLevel().name} / ${curGame().name}`;
-  UI.attempt.textContent=`Attempt ${attempt}`;
-  UI.pct.textContent=`${pct()}%`;
-  UI.bar.style.width=`${pct()}%`;
-}
-function refreshPicker(){
-  UI.picker.innerHTML='';
-  PART.levels.forEach((lv,i)=>{
-    const opt=document.createElement('option');opt.value=i;opt.textContent=`${i+1}. ${lv.name}`;UI.picker.appendChild(opt);
-  });
-  UI.picker.value=levelI;
-}
-UI.picker.addEventListener('change',e=>{
-  const i=+e.target.value;
-  if(i<= (load().lvl ?? 0)){ levelI=i; gameI=0; attempt=1; showMenu(); }
-  else { e.target.value=levelI; }
-});
-UI.reset.addEventListener('click',()=>{
-  if(confirm('Reset progress?')){ save({lvl:0}); levelI=0; gameI=0; attempt=1; showMenu(); }
-});
-
-// ========= Menu =========
-playBtn.addEventListener('click', start);
-howBtn.addEventListener('click', ()=>alert('Goal: हर Level में 4 mini-games clear करो. Controls: ← → move, SPACE/tap jump. Red spikes & saws छुओगे तो मरोगे. Gate तक पहुँचते ही अगला गेम. Progress save होती है (level unlock).'));
-function showMenu(){
-  center.style.display='grid'; running=false; cam=0; resetPlayer(true);
-  $('.title').textContent = `${curLevel().name} • ${curGame().name}`;
-  $('.sub').textContent = 'PC: ← → + SPACE • Mobile: buttons';
-  refreshPicker(); updateCrumbs(); UI.msg.textContent='';
-}
-function start(){ center.style.display='none'; running=true; cv.focus() }
-
-// ========= Save =========
-const KEY='devil_lvl_3x4';
-function save(s){ localStorage.setItem(KEY, JSON.stringify({...load(),...s})); }
-function load(){ try{return JSON.parse(localStorage.getItem(KEY))||{}}catch{return{}} }
-
-// ========= Player control =========
-function resetPlayer(first=false){
-  player.x=80; player.y=FLOOR()-player.h-2; player.vx=0; player.vy=0; player.alive=true; player.onGround=true;
-  if(!first){attempt++; UI.attempt.textContent=`Attempt ${attempt}`;}
+function resetLevel() {
+  player.x = 50;
+  player.y = 300;
+  player.dy = 0;
+  attempt++;
+  updateHUD();
 }
 
-function hit(){ if(!player.alive) return; player.alive=false; UI.msg.textContent='💀 Ouch!'; setTimeout(()=>{ resetPlayer(); cam=0; },180); }
-function win(){
-  running=false; UI.msg.textContent='✅ Cleared!';
-  setTimeout(()=>{
-    gameI++;
-    if(gameI>=4){
-      levelI++;
-      if(levelI>=PART.levels.length){
-        levelI=PART.levels.length-1; gameI=3;
-        UI.msg.textContent='🎉 Part Complete!'; center.style.display='grid'; return;
-      }
-      save({lvl:Math.max(load().lvl??0, levelI)});
-      gameI=0;
-      alert(`Level ${levelI} unlocked!`);
-    }
-    attempt=1; showMenu();
-  },250);
+function updateHUD() {
+  document.getElementById("level").innerText = `Level ${level} / Game 1`;
+  document.getElementById("attempts").innerText = `Attempt ${attempt}`;
 }
 
-// ========= Physics, collisions & rendering =========
-function collidePiece(p){
-  const base=groundY();
+function update() {
+  player.dy += gravity;
+  player.y += player.dy;
 
-  if(p.t==='block'){
-    const y=base-p.h;
-    if(aabb(player.x,player.y,player.w,player.h, p.x-cam,y,p.w,p.h)){
-      // resolve vertically (top surface)
-      if(player.y+player.h <= y+12 && player.vy>=0){
-        player.y = y - player.h; player.vy=0; player.onGround=true; return;
-      }else{
-        // wall collide
-        if(player.x+player.w/2 < p.x-cam + p.w/2) player.x = p.x-cam - player.w - 0.1;
-        else player.x = p.x-cam + p.w + 0.1;
-      }
+  if (player.y + player.size > 340) {
+    player.y = 340 - player.size;
+    player.dy = 0;
+    player.onGround = true;
+  } else {
+    player.onGround = false;
+  }
+
+  // Collision with obstacles
+  for (let obs of obstacles) {
+    if (player.x < obs.x + obs.w &&
+        player.x + player.size > obs.x &&
+        player.y < obs.y + obs.h &&
+        player.y + player.size > obs.y) {
+      resetLevel();
     }
   }
 
-  if(p.t==='moving'){
-    const t=performance.now()/1000; const amp=(p.h2-p.h1)/2; const mid=p.h1+amp;
-    const h = mid + Math.sin(t*p.s*2*Math.PI)*amp;
-    const y = base - h;
-    if(aabb(player.x,player.y,player.w,player.h, p.x-cam,y,p.w,h)){
-      if(player.y+player.h <= y+12 && player.vy>=0){
-        player.y=y-player.h; player.vy=0; player.onGround=true;
-      }else{
-        if(player.x+player.w/2 < p.x-cam + p.w/2) player.x = p.x-cam - player.w - 0.1;
-        else player.x = p.x-cam + p.w + 0.1;
-      }
-    }
+  // Goal reached
+  if (player.x > goal.x) {
+    level++;
+    attempt = 1;
+    generateLevel();
+    resetLevel();
   }
 
-  if(p.t==='spikes'){
-    const y=base-p.h;
-    const W=p.n*p.w;
-    if(aabb(player.x,player.y,player.w,player.h, p.x-cam,y,W,p.h)){
-      // approx triangle tip check
-      const rel = (player.x+player.w/2) - (p.x-cam);
-      const tipY = y + p.h*(1 - Math.abs((rel%p.w) - p.w/2)/(p.w/2));
-      if(player.y+player.h > tipY-3) hit();
-    }
-  }
-
-  if(p.t==='saw'){
-    const x=p.x-cam, y=p.y;
-    const r=p.r; const nx=clamp(player.x+player.w/2, x-r, x+r); const ny=clamp(player.y+player.h/2, y-r, y+r);
-    const dx=nx-(x), dy=ny-(y);
-    if(dx*dx+dy*dy < r*r) hit();
-  }
-
-  if(p.t==='gate'){
-    if(player.x+player.w > p.x-cam){ win(); }
-  }
+  cameraX = player.x - 100;
 }
 
-function drawPiece(p){
-  const base=groundY();
-  if(p.t==='block'){
-    const y=base-p.h; cx.fillStyle='#183150'; cx.fillRect(p.x-cam,y,p.w,p.h); cx.fillStyle='#29507e'; cx.fillRect(p.x-cam,y, p.w,6);
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(-cameraX, 0);
+
+  // Ground
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(0, 340, 3000, 60);
+
+  // Obstacles
+  ctx.fillStyle = "#ef4444";
+  for (let obs of obstacles) {
+    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
   }
-  if(p.t==='moving'){
-    const t=performance.now()/1000; const amp=(p.h2-p.h1)/2; const mid=p.h1+amp; const h=mid+Math.sin(t*p.s*2*Math.PI)*amp;
-    const y=base-h; cx.fillStyle='#7c3aed'; cx.fillRect(p.x-cam,y,p.w,h);
-  }
-  if(p.t==='spikes'){
-    const y=base-p.h; cx.fillStyle= getComputedStyle(document.documentElement).getPropertyValue('--danger') || '#ff5d6c';
-    for(let i=0;i<p.n;i++){const x=p.x-cam+i*p.w; cx.beginPath(); cx.moveTo(x,y+p.w); cx.lineTo(x+p.w/2,y); cx.lineTo(x+p.w,y+p.w); cx.closePath(); cx.fill();}
-  }
-  if(p.t==='saw'){
-    const x=p.x-cam, y=p.y; const r=p.r; const t=performance.now()/150*(p.dir||1);
-    cx.save(); cx.translate(x,y); cx.rotate(t*0.02); cx.fillStyle='#ffd166';
-    for(let i=0;i<12;i++){cx.rotate(Math.PI/6); cx.beginPath(); cx.moveTo(r*0.6,0); cx.lineTo(r,0); cx.lineTo(r*0.6,4); cx.closePath(); cx.fill();}
-    cx.beginPath(); cx.arc(0,0,r*0.55,0,Math.PI*2); cx.fillStyle='#333'; cx.fill(); cx.restore();
-  }
-  if(p.t==='gate'){
-    cx.fillStyle='#22c55e'; cx.fillRect(p.x-cam, base-120, 10, 120);
-    cx.fillStyle='rgba(34,197,94,.25)'; cx.fillRect(p.x-cam-12, base-120, 12, 120);
-  }
+
+  // Goal
+  ctx.fillStyle = "gold";
+  ctx.beginPath();
+  ctx.arc(goal.x, goal.y, goal.size, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Player (wolf devil circle 👹)
+  ctx.fillStyle = "#a855f7";
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "white";
+  ctx.font = "14px Arial";
+  ctx.fillText("👹", player.x - 10, player.y + 5);
+
+  ctx.restore();
 }
 
-function draw(){
-  // bg parallax
-  const w=innerWidth,h=innerHeight;
-  cx.fillStyle='#0a1220'; cx.fillRect(0,0,w,h);
-  cx.fillStyle='#0c1728'; cx.fillRect(0,h*0.8,w,h*0.2);
-  // floor line
-  cx.fillStyle='#1d395e'; cx.fillRect(0, FLOOR()-2, w, 2);
-
-  // pieces
-  curGame().pieces.forEach(drawPiece);
-
-  // player
-  const grd=cx.createLinearGradient(player.x,player.y,player.x,player.y+player.h);
-  grd.addColorStop(0,'#22d3ee'); grd.addColorStop(1,'#3b82f6');
-  cx.shadowBlur=10; cx.shadowColor='rgba(0,0,0,.35)';
-  cx.fillStyle=grd; cx.fillRect(player.x,player.y,player.w,player.h);
-  cx.shadowBlur=0;
-}
-
-function step(dt){
-  // horizontal
-  if(keys.left)  player.vx = -MOVE;
-  if(keys.right) player.vx =  MOVE;
-  if(!keys.left && !keys.right) player.vx *= FRICTION;
-
-  // jump
-  player.onGround = false;
-  if(keys.justJump && Math.abs(player.y - (FLOOR()-player.h))<1.5){ player.vy = -JUMP; }
-  keys.justJump=false;
-
-  // gravity
-  player.vy += GRAV*dt;
-
-  // integrate
-  player.x += player.vx*dt;
-  player.y += player.vy*dt;
-
-  // floor
-  if(player.y > FLOOR()-player.h){ player.y = FLOOR()-player.h; player.vy=0; player.onGround=true; }
-
-  // camera follow
-  const target = clamp(player.x - innerWidth*0.35, 0, curGame().len - innerWidth*0.6);
-  cam += (target-cam)*Math.min(1, dt*6);
-
-  // world bounds
-  if(player.x < 0) player.x=0;
-  if(player.y > innerHeight+200) hit();
-
-  // collisions
-  for(const p of curGame().pieces){ collidePiece(p); }
-
-  // progress HUD
-  UI.pct.textContent = `${pct()}%`;
-  UI.bar.style.width = `${pct()}%`;
-}
-
-// ========= Main loop =========
-function loop(t){
-  const dt=Math.min(0.033,(t-t0)/1000); t0=t;
-  if(running && player.alive){ step(dt); }
-  cx.clearRect(0,0,innerWidth,innerHeight);
-  cx.save(); cx.translate(-0,0);
+function loop() {
+  update();
   draw();
-  cx.restore();
-  updateCrumbs();
   requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
 
-// ========= Init pieces positions (add some saws) =========
-PART.levels.forEach((lv,idx)=>{
-  lv.games.forEach((g,gi)=>{
-    // add side saws
-    g.pieces.push(saw(600+idx*40, FLOOR()-120-idx*10, 22+idx*2, gi%2?1:-1));
-  });
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && player.onGround) {
+    player.dy = jumpPower;
+  }
 });
 
-// ========= Start =========
-showMenu();
-
-// ========= utils =========
-})();
+updateHUD();
+loop();
 </script>
 </body>
 </html>
