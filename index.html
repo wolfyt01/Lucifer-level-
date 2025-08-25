@@ -1,335 +1,138 @@
-<!doctype html>
-<html lang="hi">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>WOLF LEVEL (Phaser)</title>
-<style>
-  :root{--bg:#0b0f15;--ink:#e6edf3;--mut:#9fb3c9;--chip:#132033;--line:#20324b;--acc:#22d3ee;--acc2:#60a5fa;--danger:#ff5d6c;}
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto;}
-  #game{width:100vw;height:100dvh;display:block;background:linear-gradient(180deg,#0f1625,#0a0f19);}
-  /* HUD */
-  #hud{position:fixed;inset:0;pointer-events:none;display:grid;grid-template-rows:auto 1fr auto;padding:10px;}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .chip{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:12px;padding:6px 10px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
-  .brand{font-weight:900}
-  #progress{height:10px;background:#0e2136;border:1px solid var(--line);border-radius:999px;overflow:hidden}
-  #bar{height:100%;width:0%;background:linear-gradient(90deg,var(--acc),var(--acc2))}
-  /* Center menu */
-  #center{position:fixed;inset:0;display:grid;place-items:center}
-  .card{pointer-events:auto;max-width:760px;width:min(92vw,760px);background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.35);text-align:center}
-  .title{font-size:clamp(22px,4vw,36px);font-weight:900;margin:6px 0}
-  .sub{color:var(--mut);margin:0 0 8px}
-  .btnRow{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:10px}
-  .btn{pointer-events:auto;cursor:pointer;padding:10px 14px;border-radius:12px;border:1px solid #1f3858;background:#0e2236;color:#dce7f3;font-weight:700}
-  .btn.primary{background:linear-gradient(180deg,#1a3f66,#0f2b49)}
-  select{pointer-events:auto;background:#0f1a2a;color:var(--ink);border:1px solid #22314a;padding:6px 10px;border-radius:10px}
-  /* Mobile jump button */
-  #leftBtn,#rightBtn,#jumpBtn{
-    position:fixed;bottom:14px;width:68px;height:68px;border-radius:18px;background:rgba(255,255,255,.08);
-    border:1px solid var(--line);display:grid;place-items:center;font-size:28px;pointer-events:auto;user-select:none
-  }
-  #leftBtn{left:14px}
-  #rightBtn{left:96px}
-  #jumpBtn{right:14px}
-  /* Rotate overlay (portrait) */
-  #rotate{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.75);z-index:30;text-align:center;padding:20px}
-  #rotate .box{background:#0f172a;border:1px solid var(--line);border-radius:16px;padding:18px 22px;max-width:420px}
-  @media (orientation:portrait){ #rotate{display:grid} }
-</style>
+  <meta charset="UTF-8" />
+  <title>Wolf Level</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      overflow: hidden;
+    }
+    #game-container {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
 </head>
 <body>
-<div id="game"></div>
+  <div id="game-container"></div>
 
-<!-- HUD -->
-<div id="hud">
-  <div class="row">
-    <div class="chip brand">🐺 WOLF LEVEL</div>
-    <div class="chip" id="crumb">Level 1 / Game 1</div>
-    <div class="chip" id="attempt">Attempt 1</div>
-    <div class="chip" id="pct">0%</div>
-    <div class="chip" id="msg"></div>
-  </div>
-  <div></div>
-  <div class="row">
-    <div id="progress" style="flex:1"><div id="bar"></div></div>
-    <div class="row">
-      <select id="picker" title="Level select">
-        <option value="0">1. Level 1</option>
-      </select>
-      <button class="btn" id="reset">Reset</button>
-      <button class="btn" id="pause">Pause</button>
-    </div>
-  </div>
-</div>
-
-<!-- Center Menu -->
-<div id="center">
-  <div class="card">
-    <div class="title">Wolf Level</div>
-    <p class="sub">Left/Right/Jump • Spikes • Saws • Moving Platforms • Progress</p>
-    <div class="btnRow">
-      <button class="btn primary" id="play">Play</button>
-      <button class="btn" id="how">How to Play</button>
-    </div>
-  </div>
-</div>
-
-<!-- Mobile buttons -->
-<div id="leftBtn">◀️</div>
-<div id="rightBtn">▶️</div>
-<div id="jumpBtn">⤴</div>
-
-<!-- Rotate prompt -->
-<div id="rotate">
-  <div class="box">
-    <div style="font-size:42px">📲↻</div>
-    <h3 style="margin:.4rem 0 0">Rotate to Landscape</h3>
-    <p style="color:#9fb3c9;margin:.2rem 0 0">फोन को साइड में घुमाओ और फिर Play दबाओ</p>
-  </div>
-</div>
-
-<!-- Phaser -->
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
-<script>
-(() => {
-  const W = () => window.innerWidth;
-  const H = () => window.innerHeight;
-  const FLOOR = () => Math.round(H() * 0.80);
-
-  // HUD refs
-  const hud = {
-    pct: document.getElementById('pct'),
-    bar: document.getElementById('bar'),
-    attempt: document.getElementById('attempt'),
-    msg: document.getElementById('msg'),
-    pause: document.getElementById('pause')
-  };
-  const center = document.getElementById('center');
-
-  let attempt = 1, paused = false;
-
-  // Phaser game
-  const config = {
-    type: Phaser.AUTO,
-    parent: 'game',
-    width: W(),
-    height: H(),
-    backgroundColor: '#0a0f19',
-    physics: {
-      default: 'arcade',
-      arcade: {
-        gravity: { y: 1400 },
-        debug: false
+  <!-- Phaser.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
+  <script>
+    class MyGame extends Phaser.Scene {
+      constructor() {
+        super();
       }
-    },
-    scene: { preload, create, update }
-  };
-  const game = new Phaser.Game(config);
-  window.addEventListener('resize', () => {
-    game.scale.resize(W(), H());
-    // floor reposition by resize is handled in createPieces using FLOOR()
-  });
 
-  // Globals in scene
-  let scene, cursors, keys, player, emoji, levelLen = 5200, camera, progressX = 0;
-  let solids, hazards, movingPlatforms, saws;
-
-  function preload() {
-    scene = this;
-    // make circle texture for body
-    const g = this.make.graphics({x:0,y:0,add:false});
-    g.fillStyle(0x43b6ff,1);
-    g.fillCircle(16,16,16);
-    g.generateTexture('ball', 32, 32);
-
-    // saw texture
-    const g2 = this.make.graphics({x:0,y:0,add:false});
-    g2.fillStyle(0xffd166,1);
-    for(let i=0;i<12;i++){
-      const a = (i/12)*Math.PI*2;
-      const x1 = 24+Math.cos(a)*14, y1 = 24+Math.sin(a)*14;
-      const x2 = 24+Math.cos(a+0.18)*22, y2 = 24+Math.sin(a+0.18)*22;
-      g2.fillTriangle(24,24, x1,y1, x2,y2);
-    }
-    g2.fillStyle(0x333333,1); g2.fillCircle(24,24,12);
-    g2.generateTexture('saw', 48, 48);
-  }
-
-  function create() {
-    // Groups
-    solids = this.physics.add.staticGroup();
-    hazards = this.physics.add.group({ allowGravity:false, immovable:true });
-    movingPlatforms = this.physics.add.group({ allowGravity:false, immovable:true });
-    saws = this.physics.add.group({ allowGravity:false, immovable:true });
-
-    // Ground long strips with gaps
-    createLevelPieces(this);
-
-    // Player
-    player = this.physics.add.image(120, FLOOR()-40, 'ball').setDepth(5);
-    player.setSize(24,24).setOffset(4,4);
-    player.setCollideWorldBounds(false);
-    player.setDragX(900).setMaxVelocity(320, 900);
-    // Devil emoji "face"
-    emoji = this.add.text(player.x, player.y, '👹', { font: '20px Apple Color Emoji,Segoe UI Emoji', color:'#fff' }).setOrigin(0.5).setDepth(6);
-
-    // Camera
-    this.cameras.main.setBounds(0, 0, levelLen, H());
-    camera = this.cameras.main;
-    camera.startFollow(player, true, 0.12, 0.12, -W()*0.35, 0);
-    this.physics.world.setBounds(0,0,levelLen,H());
-
-    // Colliders
-    this.physics.add.collider(player, solids, () => {});
-    this.physics.add.collider(player, movingPlatforms, () => {});
-    this.physics.add.overlap(player, hazards, die, null, this);
-    this.physics.add.overlap(player, saws, die, null, this);
-
-    // Input
-    cursors = this.input.keyboard.createCursorKeys();
-    keys = this.input.keyboard.addKeys({W:Phaser.Input.Keyboard.KeyCodes.W, A:Phaser.Input.Keyboard.KeyCodes.A, D:Phaser.Input.Keyboard.KeyCodes.D, SPACE:Phaser.Input.Keyboard.KeyCodes.SPACE });
-
-    // Mobile buttons
-    bindMobileButtons(this);
-
-    // UI
-    document.getElementById('play').onclick = () => { center.style.display='none'; this.scene.resume(); };
-    document.getElementById('how').onclick = () => alert('Left/Right से चलाओ, ⤴ Jump. Spikes/Saw छूए तो मरोगे. Gate पार करोगे तो जीत।');
-    document.getElementById('reset').onclick = () => { attempt=1; respawn(true); };
-    hud.pause.onclick = () => { paused = !paused; hud.pause.textContent = paused?'Resume':'Pause'; };
-    this.scene.pause(); // start on menu
-  }
-
-  function createLevelPieces(s) {
-    const base = FLOOR();
-    const addFloor = (x,w) => solids.create(x+w/2, base-10, null).setDisplaySize(w, 20).refreshBody();
-
-    // Start runway
-    addFloor(0, 260);
-
-    // Pattern: blocks + gaps + spikes + moving + saws
-    let cx = 360;
-    for (let i=0;i<12;i++){
-      // block
-      const bw = 140, bh = 60 + i*2;
-      solids.create(cx + bw/2, base - bh/2, null).setDisplaySize(bw, bh).refreshBody();
-
-      // spikes (as thin hazard rectangles)
-      if (i%2===0){
-        makeSpikes(cx+40, base-28, 3 + (i%4));
+      preload() {
+        // Load simple assets (emoji character, spike)
+        this.load.image("ground", "https://i.ibb.co/r6fpprx/ground.png");
+        this.load.image("spike", "https://i.ibb.co/VCs9Lry/spike.png");
+        this.load.image("player", "https://i.ibb.co/3znkPW7/devil.png"); // devil style character
       }
-      // moving platform (vertical)
-      if (i%3===1){
-        const plat = movingPlatforms.create(cx+210, base-150, null).setDisplaySize(90,18);
-        plat.body.updateFromGameObject();
-        s.tweens.add({targets:plat, y: base-80 - (i*2), duration: 1400, yoyo:true, repeat:-1, ease:'Sine.inOut'});
+
+      create() {
+        // Add ground
+        this.ground = this.physics.add.staticGroup();
+        this.ground.create(400, 580, "ground").setScale(2).refreshBody();
+
+        // Add player
+        this.player = this.physics.add.sprite(100, 450, "player").setScale(0.2);
+        this.player.setBounce(0.1);
+        this.player.setCollideWorldBounds(true);
+
+        // Add spikes
+        this.spikes = this.physics.add.group();
+        this.spikes.create(400, 545, "spike").setScale(0.1).refreshBody();
+        this.spikes.create(600, 545, "spike").setScale(0.1).refreshBody();
+
+        // Collisions
+        this.physics.add.collider(this.player, this.ground);
+        this.physics.add.collider(this.spikes, this.ground);
+        this.physics.add.overlap(this.player, this.spikes, this.hitSpike, null, this);
+
+        // Controls
+        this.cursors = this.input.keyboard.createCursorKeys();
+
+        // Progress text
+        this.progressText = this.add.text(16, 16, "Progress: 0%", {
+          fontSize: "24px",
+          fill: "#fff"
+        });
       }
-      // saw
-      if (i%4===2){
-        const saw = saws.create(cx+140, base-120, 'saw').setAngle(0);
-        s.tweens.add({targets:saw, angle: 360, duration: 1400, repeat:-1, ease:'Linear'});
+
+      update() {
+        if (this.cursors.left.isDown) {
+          this.player.setVelocityX(-200);
+        } else if (this.cursors.right.isDown) {
+          this.player.setVelocityX(200);
+        } else {
+          this.player.setVelocityX(0);
+        }
+
+        if (this.cursors.up.isDown && this.player.body.touching.down) {
+          this.player.setVelocityY(-400);
+        }
+
+        // Progress % (based on x position)
+        let progress = Math.floor((this.player.x / 800) * 100);
+        if (progress > 100) progress = 100;
+        this.progressText.setText("Progress: " + progress + "%");
+
+        // Win condition
+        if (progress >= 100) {
+          this.scene.start("WinScene");
+        }
       }
-      // gap
-      if (i%3===0){
-        const gw = 110;
-        // "remove" floor: just don't add it; add a thin hazard to punish fall
-        hazards.create(cx+180+gw/2, base-5, null).setDisplaySize(gw, 8);
+
+      hitSpike(player, spike) {
+        this.scene.start("GameOverScene");
       }
-      cx += 260 + 90;
     }
 
-    // End zone + gate
-    makeSpikes(levelLen-420, base-28, 5);
-    addFloor(levelLen-260, 220);
-    // Gate as harmless marker, but use invisible hazard line at very end to trigger win
-    const gate = s.add.rectangle(levelLen-20, base-70, 10, 120, 0x22c55e).setDepth(1);
-    hazards.create(levelLen, base-50, null).setDisplaySize(2, 100).setData('isGate', true);
-  }
-
-  function makeSpikes(x, y, count){
-    for(let i=0;i<count;i++){
-      const r = hazards.create(x + i*28 + 14, y+12, null).setDisplaySize(26, 24);
-      r.setData('isSpike', true);
-    }
-  }
-
-  function bindMobileButtons(s){
-    const left = document.getElementById('leftBtn');
-    const right = document.getElementById('rightBtn');
-    const jump = document.getElementById('jumpBtn');
-    let lp=false, rp=false;
-
-    const on = (el,ev,fn)=>el.addEventListener(ev,fn,{passive:false});
-
-    on(left,'touchstart',e=>{e.preventDefault(); lp=true;});
-    on(left,'touchend',e=>{e.preventDefault(); lp=false;});
-    on(right,'touchstart',e=>{e.preventDefault(); rp=true;});
-    on(right,'touchend',e=>{e.preventDefault(); rp=false;});
-    on(jump,'touchstart',e=>{e.preventDefault(); tryJump();});
-
-    s.events.on('update', ()=>{
-      if(lp) player.setAccelerationX(-900);
-      else if(rp) player.setAccelerationX(900);
-      else player.setAccelerationX(0);
-    });
-  }
-
-  function tryJump(){
-    // allow jump if touching down or low vertical speed (coyote-ish)
-    const onGround = player.body.blocked.down || player.body.touching.down;
-    if(onGround || player.body.velocity.y > -60){
-      player.setVelocityY(-640);
-    }
-  }
-
-  function die(_player, hazard){
-    if (hazard.getData('isGate')) { // reached end
-      hud.msg.textContent = '✅';
-      setTimeout(()=>{ alert('Level Complete!'); attempt=1; respawn(true); }, 120);
-      return;
-    }
-    hud.msg.textContent = '💀';
-    player.disableBody(true,true);
-    setTimeout(()=>{ attempt++; respawn(false); }, 180);
-  }
-
-  function respawn(resetCamera){
-    hud.attempt.textContent = `Attempt ${attempt}`;
-    hud.msg.textContent = '';
-    const y = FLOOR() - 40;
-    player.enableBody(true, 120, y, true, true);
-    player.setVelocity(0,0).setAcceleration(0,0);
-    if(resetCamera) camera.scrollX = 0;
-  }
-
-  function update(time, delta) {
-    if (paused || !player.body) return;
-
-    // controls
-    const left = cursors.left.isDown || keys.A.isDown;
-    const right = cursors.right.isDown || keys.D.isDown;
-    if (left && !right) player.setAccelerationX(-900);
-    else if (right && !left) player.setAccelerationX(900);
-    else player.setAccelerationX(0);
-
-    if (Phaser.Input.Keyboard.JustDown(cursors.up) || Phaser.Input.Keyboard.JustDown(keys.W) || Phaser.Input.Keyboard.JustDown(keys.SPACE)) {
-      tryJump();
+    class GameOverScene extends Phaser.Scene {
+      constructor() {
+        super("GameOverScene");
+      }
+      create() {
+        this.add.text(300, 250, "Game Over", { fontSize: "48px", fill: "#f00" });
+        this.add.text(280, 320, "Press SPACE to Restart", { fontSize: "24px", fill: "#fff" });
+        this.input.keyboard.once("keydown-SPACE", () => {
+          this.scene.start("default");
+        });
+      }
     }
 
-    // keep inside vertical world
-    if (player.y > H()+300) die();
+    class WinScene extends Phaser.Scene {
+      constructor() {
+        super("WinScene");
+      }
+      create() {
+        this.add.text(300, 250, "You Win 🎉", { fontSize: "48px", fill: "#0f0" });
+        this.add.text(250, 320, "Press SPACE for Next Level", { fontSize: "24px", fill: "#fff" });
+        this.input.keyboard.once("keydown-SPACE", () => {
+          this.scene.start("default");
+        });
+      }
+    }
 
-    // emoji face follow
-    emoji.setPosition(player.x, player.y);
+    const config = {
+      type: Phaser.AUTO,
+      width: 800,
+      height: 600,
+      backgroundColor: "#000000",
+      physics: {
+        default: "arcade",
+        arcade: { gravity: { y: 600 }, debug: false }
+      },
+      scene: [MyGame, GameOverScene, WinScene],
+      parent: "game-container"
+    };
 
-    // progress HUD
-    progressX = Math.max(progressX, player.x);
-    const p = Math.floor(100 * Phaser.Math.Clamp(progressX / levelLen, 0, 1));
-    hud.pct.textContent = p + '%';
-    hud.bar.style.width = p + '%';
-  }
-})();
-</script>
+    new Phaser.Game(config);
+  </script>
 </body>
-  </html>
+</html>
